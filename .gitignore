@@ -1,0 +1,24 @@
+# Python專案相關
+*.py[cod]
+__pycache__/
+*.so
+
+# Virtual環境
+venv/
+env/
+
+# Jupyter Notebook檔案
+.ipynb_checkpoints/
+
+# Log files
+*.log
+
+# vscode、PyCharm等IDE檔案
+.vscode/
+.idea/
+
+# macOS相關
+.DS_Store
+
+
+/uploads/*
