@@ -39,7 +39,6 @@ def upload_file():
         document = Document()
         document.add_heading('圖片報告', 0)
         document.add_paragraph(f'標題: {title}')
-        document.add_paragraph(f'說明: {description}')
 
         # 插入表格，每張圖片對應兩行，第一行放圖片，第二行放編號、說明等資訊
         for index, image_file in enumerate(image_files):
@@ -74,6 +73,11 @@ def upload_file():
             table.cell(2, 4).text = '攝影人'  # 攝影人
             table.cell(2, 5).text = f'{photographer}'  # 攝影人
 
+            # 每插入兩個表格後，添加一個段落作為標題
+            if (index + 1) % 2 == 0 and (index + 1) != len(image_files):
+                document.add_page_break()
+                document.add_paragraph(f'標題: {title}')
+
         # 保存 Word 文件
         word_file_path = os.path.join(UPLOAD_FOLDER, f'{title}_{int(time.time())}.docx')
         document.save(word_file_path)
@@ -85,6 +89,7 @@ def upload_file():
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
 
 def delete_all_images_in_folder(folder_path):
     # 刪除資料夾中所有的圖片文件
