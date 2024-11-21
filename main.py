@@ -29,11 +29,11 @@ def upload_file():
 
         # 獲取圖片列表和說明
         image_files = request.files.getlist('images')
-        title = request.form.get('title', '預設標題')
-        description = request.form.get('description', '無提供說明')
-        shooting_time = request.form.get('shooting_time', '')
-        shooting_location = request.form.get('shooting_location', '')
-        photographer = request.form.get('photographer', '')
+        title = request.form.get('title', '').strip() or '預設標題'
+        description = request.form.get('description', '').strip() or '無提供說明'
+        shooting_time = request.form.get('shooting_time', '').strip() or f'{time.strftime("%Y%m%d")}'
+        shooting_location = request.form.get('shooting_location', '').strip() or '台灣'
+        photographer = request.form.get('photographer', '').strip() or 'None'
 
         # 創建 Word 文件並插入標題和說明
         document = Document()
@@ -78,57 +78,78 @@ def upload_file():
                 document.add_page_break()
                 document.add_paragraph(f'標題: {title}')
 
-        # 保存 Word 文件
         word_file_path = os.path.join(UPLOAD_FOLDER, f'{title}_{int(time.time())}.docx')
+
         document.save(word_file_path)
 
-        # 成功生成文件後，刪除整個資料夾中的圖片
-        delete_all_images_in_folder(UPLOAD_FOLDER)
+        delete_file_in_folder(UPLOAD_FOLDER)
 
         return jsonify({"message": "文件已成功處理", "word_file": word_file_path}), 200
-
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
 
-def delete_all_images_in_folder(folder_path):
-    # 刪除資料夾中所有的圖片文件
+def delete_file_in_folder(folder_path, specific_file=None):
     try:
-        for file_name in os.listdir(folder_path):
-            file_path = os.path.join(folder_path, file_name)
-            if file_name.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.bmp')):  # 只刪除圖片文件
+        if specific_file:
+            file_path = os.path.join(folder_path, specific_file)
+            if os.path.exists(file_path):  # 確保檔案存在
                 os.remove(file_path)
-                print(f"刪除文件: {file_path}")
-
+                print(f"成功刪除指定檔案: {file_path}")
+                return {"message": f"成功刪除指定檔案: {specific_file}"}
+            else:
+                return {"error": f"檔案 {specific_file} 不存在"}
+        else:
+            deleted_files = []
+            for file_name in os.listdir(folder_path):
+                file_path = os.path.join(folder_path, file_name)
+                if file_name.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.bmp')):  # 圖片檔案類型
+                    os.remove(file_path)
+                    deleted_files.append(file_name)
+                    print(f"刪除圖片檔案: {file_path}")
+            if deleted_files:
+                return {"message": "成功刪除所有圖片檔案", "deleted_files": deleted_files}
+            else:
+                return {"message": "沒有圖片檔案需要刪除"}
     except Exception as e:
         print(f"刪除圖片文件時出現錯誤: {str(e)}")
-
-# 定義處理文件下載的 API 路由
-@app.route('/flaskapi/api/download/<filename>', methods=['POST'])
-def download_file(filename):
-    try:
-        # 檢查文件是否存在
-        file_path = os.path.join(UPLOAD_FOLDER, filename)
-        if not os.path.exists(file_path):
-            return jsonify({"error": "文件不存在"}), 404
-
-        # 讓用戶下載文件
-        return send_file(file_path, as_attachment=True)
-
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
 
 # 定義處理文件瀏覽的 API 路由
 @app.route('/flaskapi/api/files', methods=['GET'])
 def list_docx_files():
     try:
-        # 查找 UPLOAD_FOLDER 中的所有 .docx 文件
         docx_files = [f for f in os.listdir(UPLOAD_FOLDER) if f.endswith('.docx')]
         return jsonify({"docx_files": docx_files}), 200
-
+    except FileNotFoundError:
+        return jsonify({"error": "文件未找到"}), 404
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+# 定義處理文件下載的 API 路由
+@app.route('/flaskapi/api/download/<filename>', methods=['POST'])
+def download_file(filename):
+    try:
+        file_path = os.path.join(UPLOAD_FOLDER, filename)
+        if not os.path.exists(file_path):
+            return jsonify({"error": "文件不存在"}), 404
+        return send_file(file_path, as_attachment=True)
+    except FileNotFoundError:
+        return jsonify({"error": "文件未找到"}), 404
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+# 定義處理文件刪除的 API 路由
+@app.route('/flaskapi/api/delete/<filename>', methods=['POST'])
+def delete_file(filename):
+    try:
+        result = delete_file_in_folder(UPLOAD_FOLDER, filename)
+        if "error" in result:
+            return jsonify(result), 404
+        return jsonify(result), 200
+    except FileNotFoundError as e:
+        return jsonify({"error": str(e)}), 404
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 if __name__ == '__main__':
     app.run(debug=True)
